@@ -123,6 +123,7 @@ const Upload = () => {
       setStatusText("Something went wrong");
       setIsProcessing(false);
     }
+    
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
