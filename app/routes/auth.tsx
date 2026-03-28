@@ -12,13 +12,13 @@ const Auth = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const next = location.search.split("next=")[1] || "/";
+  const next = new URLSearchParams(location.search).get("next") || "/";
 
   useEffect(() => {
-    if (auth?.isAuthenticated) {
+    if (!isLoading && auth?.isAuthenticated) {
       navigate(next);
     }
-  }, [auth?.isAuthenticated, next, navigate]);
+  }, [isLoading, auth?.isAuthenticated, next, navigate]);
 
   return (
     <main className="bg-[url('/images/bg-auth.svg')] bg-cover min-h-screen flex items-center justify-center">

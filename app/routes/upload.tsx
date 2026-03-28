@@ -79,14 +79,33 @@ const Upload = () => {
         feedback: {},
       };
 
-      await kv.set(`resume:${uuid}`, JSON.stringify(data));
+      console.log("Saving to KV...");
+
+      await Promise.race([
+        kv.set(`resume:${uuid}`, JSON.stringify(data)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject("KV Timeout"), 10000)
+        )
+      ]);
+
+      console.log("KV SAVED");
 
       // 5️⃣ AI Analyze
       setStatusText("Analyzing...");
-      const feedback = await ai.feedback(
-        uploadedFile.path,
-        prepareInstructions({ jobTitle, jobDescription })
-      );
+
+      console.log("AI START");
+
+      const feedback: any = await Promise.race([
+        ai.feedback(
+          uploadedFile.path,
+          prepareInstructions({ jobTitle, jobDescription })
+        ),
+        // new Promise((_, reject) =>
+        //   setTimeout(() => reject("AI Timeout"), 15000)
+        // )
+      ]);
+
+      console.log("AI DONE", feedback);
 
       if (!feedback || (feedback as any).success === false) {
         const errorMsg = (feedback as any)?.error || 'Failed to analyze resume';
@@ -97,7 +116,7 @@ const Upload = () => {
 
       // 6️⃣ Parse safely
       try {
-        const content = feedback.message.content;
+        const content = (feedback as any)?.message?.content;
         const feedbackText =
           typeof content === 'string'
             ? content
@@ -113,6 +132,7 @@ const Upload = () => {
       await kv.set(`resume:${uuid}`, JSON.stringify(data));
 
       setStatusText("Analysis complete! Redirecting...");
+      setIsProcessing(false);
 
       setTimeout(() => {
         navigate(`/resume/${uuid}`);
@@ -120,10 +140,9 @@ const Upload = () => {
 
     } catch (err) {
       console.error(err);
-      setStatusText("Something went wrong");
+      setStatusText(`Error: ${err}`);
       setIsProcessing(false);
     }
-    
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {

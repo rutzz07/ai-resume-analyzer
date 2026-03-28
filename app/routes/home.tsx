@@ -1,4 +1,4 @@
-import type { Route } from "./+types/home"; 
+import type { Route } from "./+types/home";
 import Navbar from "../components/Navbar";
 import { resumes } from "../../constants";
 import ResumeCard from "../components/ResumeCard";
@@ -14,31 +14,33 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const { auth } = usePuterStore();
+  const { auth, isLoading } = usePuterStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!auth?.isAuthenticated) {
-      navigate('/auth?next=/');
+    if (!isLoading && !auth?.isAuthenticated) {
+      navigate("/auth?next=/");
     }
-  }, [auth?.isAuthenticated, navigate]);
+  }, [isLoading, auth?.isAuthenticated, navigate]);
 
   return (
     <main className="bg-[url('/images/bg-main.svg')] bg-cover">
       <Navbar />
 
       <section className="main-section">
-        <div className="page-handling py-16">
+        <div className="page-heading py-16">
           <h1>Track Your Application & Resume Ratings</h1>
           <h2>Review your Submission and check AI-Powered Feedback</h2>
         </div>
 
-        {resumes.length > 0 && (
+        {resumes.length > 0 ? (
           <div className="resumes-section">
             {resumes.map((resume) => (
               <ResumeCard key={resume.id} resume={resume} />
             ))}
           </div>
+        ) : (
+          <p className="text-gray-500">No resumes found</p>
         )}
       </section>
     </main>
