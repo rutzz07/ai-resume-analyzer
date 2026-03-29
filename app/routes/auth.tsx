@@ -1,4 +1,4 @@
-import { useEffect } from "react"; 
+import { useEffect, useMemo } from "react";
 import { usePuterStore } from "../lib/puter";
 import { useLocation, useNavigate } from "react-router";
 
@@ -12,24 +12,27 @@ const Auth = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const next = new URLSearchParams(location.search).get("next") || "/";
+  // ✅ Fix 1: useMemo prevents next from changing every render
+  const next = useMemo(
+    () => new URLSearchParams(location.search).get("next") || "/",
+    [location.search]
+  );
 
   useEffect(() => {
     if (!isLoading && auth?.isAuthenticated) {
-      navigate(next);
+      // ✅ Fix 2: replace:true prevents /auth staying in history stack
+      navigate(next, { replace: true });
     }
-  }, [isLoading, auth?.isAuthenticated, next, navigate]);
+  }, [isLoading, auth?.isAuthenticated]); // ✅ Fix 3: remove next/navigate from deps
 
   return (
     <main className="bg-[url('/images/bg-auth.svg')] bg-cover min-h-screen flex items-center justify-center">
       <div className="gradient-border shadow-lg">
         <section className="flex flex-col gap-8 bg-white rounded-2xl p-10">
-
           <div className="flex flex-col items-center gap-2 text-center">
             <h1>Welcome</h1>
             <h2>Log In to Continue Your Job Journey</h2>
           </div>
-
           <div>
             {isLoading ? (
               <button className="auth-button animate-pulse">
@@ -49,7 +52,6 @@ const Auth = () => {
               </>
             )}
           </div>
-
         </section>
       </div>
     </main>

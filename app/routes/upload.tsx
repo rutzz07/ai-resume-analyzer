@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import Navbar from '../components/Navbar';
-import FileUploader from '~/components/FileUploader';
-import { usePuterStore } from '~/lib/puter';
-import { useNavigate } from 'react-router';
-import { convertPdfToImage } from '~/lib/pdf2img';
-import { generateUUID } from '~/lib/utils';
-import { prepareInstructions } from 'constants/index';
+import React, { useState } from "react";
+import Navbar from "../components/Navbar";
+import FileUploader from "~/components/FileUploader";
+import { usePuterStore } from "~/lib/puter";
+import { useNavigate } from "react-router";
+import { convertPdfToImage } from "~/lib/pdf2img";
+import { generateUUID } from "~/lib/utils";
+import { prepareInstructions } from "constants/index";
 
 const Upload = () => {
   const { fs, ai, kv } = usePuterStore();
   const navigate = useNavigate();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusText, setStatusText] = useState<string>('');
+  const [statusText, setStatusText] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
 
   const handleFileSelect = (file: File | null) => {
@@ -38,19 +38,19 @@ const Upload = () => {
       const uploadedFile = await fs.upload([file]);
 
       if (!uploadedFile) {
-        setStatusText('Error: Failed to upload file');
+        setStatusText("Error: Failed to upload file");
         setIsProcessing(false);
         return;
       }
 
-      // 2️⃣ Convert PDF
+      // 2️⃣ Convert PDF to image
       setStatusText("Converting to image...");
       const imageFile = await convertPdfToImage(file);
 
-      console.log("PDF RESULT:", imageFile);
-
       if (!imageFile.file) {
-        setStatusText(imageFile.error || 'Error: Failed to convert PDF to image');
+        setStatusText(
+          imageFile.error || "Error: Failed to convert PDF to image"
+        );
         setIsProcessing(false);
         return;
       }
@@ -60,12 +60,12 @@ const Upload = () => {
       const uploadedImage = await fs.upload([imageFile.file]);
 
       if (!uploadedImage) {
-        setStatusText('Error: Failed to upload image');
+        setStatusText("Error: Failed to upload image");
         setIsProcessing(false);
         return;
       }
 
-      // 4️⃣ Save initial data
+      // 4️⃣ Save initial data to KV
       setStatusText("Preparing data...");
       const uuid = generateUUID();
 
@@ -79,48 +79,33 @@ const Upload = () => {
         feedback: {},
       };
 
-      console.log("Saving to KV...");
-
       await Promise.race([
         kv.set(`resume:${uuid}`, JSON.stringify(data)),
         new Promise((_, reject) =>
           setTimeout(() => reject("KV Timeout"), 10000)
-        )
+        ),
       ]);
-
-      console.log("KV SAVED");
 
       // 5️⃣ AI Analyze
-      setStatusText("Analyzing...");
+      setStatusText("Analyzing your resume...");
 
-      console.log("AI START");
+      const feedback: any = await ai.feedback(
+        uploadedFile.path,
+        prepareInstructions({ jobTitle, jobDescription })
+      );
 
-      const feedback: any = await Promise.race([
-        ai.feedback(
-          uploadedFile.path,
-          prepareInstructions({ jobTitle, jobDescription })
-        ),
-        // new Promise((_, reject) =>
-        //   setTimeout(() => reject("AI Timeout"), 15000)
-        // )
-      ]);
-
-      console.log("AI DONE", feedback);
-
-      if (!feedback || (feedback as any).success === false) {
-        const errorMsg = (feedback as any)?.error || 'Failed to analyze resume';
+      if (!feedback || feedback?.success === false) {
+        const errorMsg = feedback?.error || "Failed to analyze resume";
         setStatusText(`Error: ${errorMsg}`);
         setIsProcessing(false);
         return;
       }
 
-      // 6️⃣ Parse safely
+      // 6️⃣ Parse AI response safely
       try {
-        const content = (feedback as any)?.message?.content;
+        const content = feedback?.message?.content;
         const feedbackText =
-          typeof content === 'string'
-            ? content
-            : content?.[0]?.text;
+          typeof content === "string" ? content : content?.[0]?.text;
 
         data.feedback = JSON.parse(feedbackText);
       } catch (err) {
@@ -129,15 +114,16 @@ const Upload = () => {
         return;
       }
 
+      // 7️⃣ Save final data with feedback
       await kv.set(`resume:${uuid}`, JSON.stringify(data));
 
       setStatusText("Analysis complete! Redirecting...");
       setIsProcessing(false);
 
+      // ✅ replace: true so back button goes to / not stuck in /upload loop
       setTimeout(() => {
-        navigate(`/resume/${uuid}`);
+        navigate(`/resume/${uuid}`, { replace: true });
       }, 1000);
-
     } catch (err) {
       console.error(err);
       setStatusText(`Error: ${err}`);
@@ -149,10 +135,9 @@ const Upload = () => {
     e.preventDefault();
 
     const formData = new FormData(e.currentTarget);
-
-    const companyName = formData.get('company-name') as string;
-    const jobTitle = formData.get('job-title') as string;
-    const jobDescription = formData.get('job-description') as string;
+    const companyName = formData.get("company-name") as string;
+    const jobTitle = formData.get("job-title") as string;
+    const jobDescription = formData.get("job-description") as string;
 
     if (!file) return;
 
@@ -164,42 +149,48 @@ const Upload = () => {
       <Navbar />
 
       <section className="main-section">
-        <div className='page-heading py-16'>
+        <div className="page-heading py-16">
           <h1>Smart feedback for your dream job</h1>
 
           {isProcessing ? (
             <>
               <h2>{statusText}</h2>
-              <img src="/images/resume-scan-2.gif" className='w-full' alt="processing" />
+              <img
+                src="/images/resume-scan-2.gif"
+                className="w-full"
+                alt="processing"
+              />
             </>
           ) : (
             <h2>Drop your resume for an ATS score and improvement tips</h2>
           )}
 
           {!isProcessing && (
-            <form onSubmit={handleSubmit} className='flex flex-col gap-4 mt-8'>
-
-              <div className='form-div'>
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-4 mt-8"
+            >
+              <div className="form-div">
                 <label>Company Name</label>
                 <input type="text" name="company-name" required />
               </div>
 
-              <div className='form-div'>
+              <div className="form-div">
                 <label>Job Title</label>
                 <input type="text" name="job-title" required />
               </div>
 
-              <div className='form-div'>
+              <div className="form-div">
                 <label>Job Description</label>
                 <textarea rows={5} name="job-description" />
               </div>
 
-              <div className='form-div'>
+              <div className="form-div">
                 <label>Upload Resume</label>
                 <FileUploader onFileSelect={handleFileSelect} />
               </div>
 
-              <button className='primary-button' type="submit">
+              <button className="primary-button" type="submit">
                 Analyze Resume
               </button>
             </form>
